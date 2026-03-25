@@ -1,6 +1,8 @@
 # WIF credential config (no secrets, but project-specific)
 credential-config.json
 
+# WIF identity token file (refreshed each session, never commit)
+oidc-token.txt
 # Python virtual environment
 .venv/
 venv/
