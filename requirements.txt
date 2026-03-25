@@ -1,0 +1,5 @@
+# GCP authentication library (includes Workload Identity Federation support)
+google-auth>=2.28.0
+
+# GCP client libraries used in the example
+google-cloud-storage>=2.14.0
