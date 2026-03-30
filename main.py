@@ -1,4 +1,3 @@
-
 import os
 import sys
 import time
@@ -660,20 +659,28 @@ def main():
                 if is_ctrlc_exit: break
                 if os.path.isfile(file_path):
                     file_name = os.path.basename(file_path)
-                    archive_path = os.path.join(ie_archive_folder, file_name)
-                    if os.path.exists(archive_path):
-                        logger.warning(f"Duplicate detected: '{file_name}' already exists in archive folder. Moving to error folder.")
+                    # Derive the output name the same way process_ie_file does
+                    # (strip leading prefix up to first underscore, if present)
+                    output_base_name = file_name.split("_", 1)[-1] if "_" in file_name else file_name
+                    # The archive stores the zipped form of the output file
+                    archived_zip_name = output_base_name + ".zip"
+                    archive_zip_path = os.path.join(ie_archive_folder, archived_zip_name)
+                    # Also check for an exact-name match in case it was stored without extension
+                    archive_exact_path = os.path.join(ie_archive_folder, file_name)
+                    if os.path.exists(archive_zip_path) or os.path.exists(archive_exact_path):
+                        matched_path = archive_zip_path if os.path.exists(archive_zip_path) else archive_exact_path
+                        logger.warning(f"Duplicate detected: '{file_name}' already exists in archive folder as '{os.path.basename(matched_path)}'. Moving to error folder.")
                         send_cloud_log_entry(
                             severity="WARNING",
-                            message=f"Duplicate file '{file_name}' detected in PROCESSED folder. File already exists in archive. Moved to error folder.",
+                            message=f"Duplicate file '{file_name}' detected in PROCESSED folder. File already exists in archive as '{os.path.basename(matched_path)}'. Moved to error folder.",
                             log_name=activity_log_name,
                             data={
                                 "event_type": "DuplicateFileDetected",
                                 "file": file_name,
-                                "archive_path": archive_path,
+                                "archive_path": matched_path,
                             },
                         )
-                        move_to_error_folder(file_path, f"Duplicate file: '{file_name}' already exists in archive folder")
+                        move_to_error_folder(file_path, f"Duplicate file: '{file_name}' already exists in archive folder as '{os.path.basename(matched_path)}'")
                         continue
                     process_ie_file(file_path)
                     initial_ie_files.add(file_path)
