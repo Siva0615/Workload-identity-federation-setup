@@ -300,6 +300,23 @@ def _process_locked_encrypt_file(file_path):
     alert_name = "FileEncryptedUploadSuccess"
     logger.info(f"Starting encryption and upload for '{file_name}'")
 
+    # --- Pre-GCS duplicate guard: check archive before encrypting/uploading ---
+    archive_check_path = os.path.join(ie_archive_folder, file_name)
+    if os.path.exists(archive_check_path):
+        logger.warning(f"Duplicate detected: '{file_name}' already exists in archive folder. Skipping GCS upload and moving to error folder.")
+        send_cloud_log_entry(
+            severity="WARNING",
+            message=f"Duplicate file '{file_name}' already exists in archive folder. GCS upload skipped. Moved to error folder.",
+            log_name=log_name,
+            data={
+                "event_type": "DuplicateFileBlockedBeforeGCS",
+                "file": file_name,
+                "archive_path": archive_check_path,
+            },
+        )
+        move_to_error_folder(file_path, f"Duplicate file: '{file_name}' already exists in archive folder. GCS upload skipped.")
+        return False
+
     # --- NEW: Retry loop for file stability check ---
     max_stability_retries = 5
     is_ready = False
@@ -669,10 +686,10 @@ def main():
                     archive_exact_path = os.path.join(ie_archive_folder, file_name)
                     if os.path.exists(archive_zip_path) or os.path.exists(archive_exact_path):
                         matched_path = archive_zip_path if os.path.exists(archive_zip_path) else archive_exact_path
-                        logger.warning(f"Duplicate detected: '{file_name}' already exists in archive folder as '{os.path.basename(matched_path)}'. Moving to error folder.")
+                        logger.warning(f"Duplicate detected: '{file_name}' already exists in archive folder as '{os.path.basename(matched_path)}'. Skipping processing.")
                         send_cloud_log_entry(
                             severity="WARNING",
-                            message=f"Duplicate file '{file_name}' detected in PROCESSED folder. File already exists in archive as '{os.path.basename(matched_path)}'. Moved to error folder.",
+                            message=f"Duplicate file '{file_name}' detected in PROCESSED folder. File already exists in archive as '{os.path.basename(matched_path)}'. Skipping processing.",
                             log_name=activity_log_name,
                             data={
                                 "event_type": "DuplicateFileDetected",
@@ -680,7 +697,6 @@ def main():
                                 "archive_path": matched_path,
                             },
                         )
-                        move_to_error_folder(file_path, f"Duplicate file: '{file_name}' already exists in archive folder as '{os.path.basename(matched_path)}'")
                         continue
                     process_ie_file(file_path)
                     initial_ie_files.add(file_path)
